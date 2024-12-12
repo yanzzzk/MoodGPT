@@ -1,0 +1,13 @@
+# Ignore virtual environment
+moodgpt-env/
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+
+# Ignore environment variables file
+.env
+
+# Ignore system files
+.DS_Store
+Thumbs.db
