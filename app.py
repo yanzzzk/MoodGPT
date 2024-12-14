@@ -2,177 +2,22 @@ import os
 from dotenv import load_dotenv
 import openai
 import streamlit as st
-from maps_api import get_recommendations_from_google_maps
+from maps_api import get_recommendations_from_google_maps, geocode_location
+import pandas as pd
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# 初始化对话历史和状态
+st.set_page_config(page_title="MoodGPT: Your Mood-Based Activity Chatbot", page_icon="💬", layout="wide")
+
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {
             "role": "system",
             "content": (
-                "You are MoodGPT, a friendly and empathetic assistant. You should engage in natural, human-like conversation. "
-                "Acknowledge the user's emotions, but do not repeat the exact same sentence or apology too many times. Vary your responses. "
-                "If the user is sad, provide gentle encouragement and suggest simple self-care or relaxing activities. "
-                "If the user is happy, celebrate their happiness and explore their interests. "
-                "After the user has sent about 3 messages, proactively suggest some local relaxing places. "
-                "Do not be overly repetitive. Keep responses concise and friendly."
-            )
-        },
-        {
-            "role": "assistant",
-            "content": "Hi there! I’m MoodGPT. How are you feeling today?"
-        }
-    ]
-    st.session_state["user_message_count"] = 0
-    st.session_state["recommended_places"] = []  # 用于存储推荐地点
-
-st.set_page_config(page_title="MoodGPT: Your Mood-Based Activity Chatbot", page_icon="💬")
-
-# CSS样式（更圆润，更清晰的UI）
-st.markdown("""
-<style>
-body {
-    font-family: "Helvetica", sans-serif;
-}
-.chat-container {
-    padding: 10px;
-}
-.user-msg, .assistant-msg {
-    display: flex;
-    align-items: flex-start;
-    margin: 10px 0;
-}
-.user-avatar, .assistant-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 20px;
-    margin: 0 10px;
-}
-.user-avatar {
-    order: 2; /* 用户头像在右侧 */
-}
-.user-bubble {
-    background: #DCF8C6;
-    border-radius: 15px;
-    padding: 10px 15px;
-    margin-left: auto;
-    max-width: 70%;
-}
-.assistant-bubble {
-    background: #F1F0F0;
-    border-radius: 15px;
-    padding: 10px 15px;
-    margin-right: auto;
-    max-width: 70%;
-}
-.input-container {
-    display: flex;
-    align-items: center;
-    margin-top: 20px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.title("MoodGPT: Your Mood-Based Activity Chatbot")
-
-left_col, right_col = st.columns([2,1])  # 左边对话，右边地图
-
-with left_col:
-    st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-    # 显示对话
-    for msg in st.session_state["messages"]:
-        if msg["role"] == "assistant":
-            st.markdown(
-                f"""
-                <div class='assistant-msg'>
-                    <img src='https://raw.githubusercontent.com/microsoft/ ConversationalAgent/main/docs/images/bot_icon.png' class='assistant-avatar'>
-                    <div class='assistant-bubble'>{msg['content']}</div>
-                </div>
-                """, unsafe_allow_html=True
-            )
-        elif msg["role"] == "user":
-            st.markdown(
-                f"""
-                <div class='user-msg'>
-                    <img src='https://raw.githubusercontent.com/microsoft/ ConversationalAgent/main/docs/images/user_icon.png' class='user-avatar'>
-                    <div class='user-bubble'>{msg['content']}</div>
-                </div>
-                """, unsafe_allow_html=True
-            )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # 输入框和发送按钮
-    user_input = st.text_input("Type your message here...", "")
-    send_clicked = st.button("Send")
-    clear_clicked = st.button("Clear Chat")
-
-# 在右侧显示地图和推荐地点（如果有）
-with right_col:
-    st.write("**Suggested Places**")
-    if st.session_state["recommended_places"]:
-        # 显示地点列表
-        for place in st.session_state["recommended_places"]:
-            st.write(f"- **{place['name']}**: {place['address']}")
-
-        # 显示地图
-        # 从recommended_places中提取lat,lng
-        map_data = {
-            "lat": [p["lat"] for p in st.session_state["recommended_places"] if p["lat"] and p["lng"]],
-            "lon": [p["lng"] for p in st.session_state["recommended_places"] if p["lat"] and p["lng"]]
-        }
-        if map_data["lat"] and map_data["lon"]:
-            import pandas as pd
-            df = pd.DataFrame(map_data)
-            st.map(df)
-    else:
-        st.write("No recommendations yet.")
-
-# 处理用户发送逻辑
-if send_clicked and user_input.strip():
-    st.session_state["messages"].append({"role": "user", "content": user_input.strip()})
-    st.session_state["user_message_count"] += 1
-
-    # 自动回复生成函数
-    def generate_response(messages):
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=messages,
-                max_tokens=200,
-                temperature=0.7
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            return f"Error: {str(e)}"
-
-    # 生成AI回复
-    response = generate_response(st.session_state["messages"])
-    st.session_state["messages"].append({"role": "assistant", "content": response})
-
-    # 当用户消息数>=3时尝试自动推荐
-    if st.session_state["user_message_count"] >= 3 and not st.session_state["recommended_places"]:
-        # 示例：固定查询yoga场所
-        # 你可以根据用户对话内容动态决定keyword和location
-        places = get_recommendations_from_google_maps(keyword="yoga", location="40.7128,-74.0060", radius=2000)
-        if places:
-            rec_text = "It sounds like you might enjoy some relaxing activities. Here are a few places you could check out nearby:\n"
-            for p in places:
-                rec_text += f"{p['name']} - {p['address']}\n"
-            st.session_state["messages"].append({"role": "assistant", "content": rec_text})
-            st.session_state["recommended_places"] = places
-
-    # 用户交互结束后页面自动重绘，无需 experimental_rerun()
-
-# 处理清空对话逻辑
-if clear_clicked:
-    st.session_state["messages"] = [
-        {
-            "role": "system",
-            "content": (
-                "You are MoodGPT, a friendly and empathetic assistant..."
+                "You are MoodGPT, a friendly and empathetic assistant. Engage in natural conversation, respond kindly to user emotions. "
+                "After about 3 user messages, proactively suggest local relaxing spots based on the user's location. "
+                "Avoid repetitive apologies. Keep responses warm and helpful."
             )
         },
         {
@@ -182,4 +27,195 @@ if clear_clicked:
     ]
     st.session_state["user_message_count"] = 0
     st.session_state["recommended_places"] = []
-    # 同样无需 experimental_rerun()，按钮点击后脚本自动重跑。
+    st.session_state["location"] = "New York"  # 用户可修改
+    st.session_state["location_coords"] = None  # 保存地理坐标
+
+def generate_response(messages):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=messages,
+            max_tokens=200,
+            temperature=0.7
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+# 自定义CSS，让UI更科技感
+st.markdown("""
+<style>
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #f0f2f6;
+}
+.chat-container {
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.user-msg, .assistant-msg {
+    display: flex;
+    align-items: flex-start;
+    margin: 15px 0;
+}
+.user-avatar, .assistant-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    margin: 0 10px;
+}
+.user-avatar {
+    order: 2;
+}
+.user-bubble, .assistant-bubble {
+    border-radius: 10px;
+    padding: 10px 15px;
+    max-width: 80%;
+    line-height: 1.5;
+    font-size: 15px;
+}
+.user-bubble {
+    background: #DCF8C6;
+    margin-left: auto;
+}
+.assistant-bubble {
+    background: #e8ebf0;
+    margin-right: auto;
+}
+h1, h2, h3 {
+    font-weight: 600;
+}
+input[type=text] {
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    padding: 8px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("MoodGPT: Your Mood-Based Activity Chatbot")
+
+# 顶部位置设置
+st.write("**Set Your Location** (e.g., 'New York', 'San Francisco', or '40.7128,-74.0060'):")
+location_input = st.text_input("Your location:", value=st.session_state["location"])
+if location_input.strip() != st.session_state["location"]:
+    st.session_state["location"] = location_input.strip()
+    st.session_state["recommended_places"] = []  # 位置变了后清空已推荐地点
+
+# 地理编码用户位置
+coords = None
+if "," in st.session_state["location"]:
+    # 认为是 "lat,lng" 格式
+    coords = tuple(map(float, st.session_state["location"].split(",")))
+else:
+    # 认为是地名
+    coords = geocode_location(st.session_state["location"])
+
+if coords is None:
+    # 地理编码失败或未给出正确坐标，默认纽约
+    coords = (40.7128, -74.0060)
+st.session_state["location_coords"] = coords
+
+left_col, right_col = st.columns([1,1])
+
+with left_col:
+    st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
+    for msg in st.session_state["messages"]:
+        if msg["role"] == "assistant":
+            st.markdown(
+                f"""
+                <div class='assistant-msg'>
+                    <img src='https://raw.githubusercontent.com/hpdts/lambda-assets/master/bot_icon.png' class='assistant-avatar'>
+                    <div class='assistant-bubble'><strong>MoodGPT:</strong><br>{msg['content']}</div>
+                </div>
+                """, unsafe_allow_html=True
+            )
+        elif msg["role"] == "user":
+            st.markdown(
+                f"""
+                <div class='user-msg'>
+                    <img src='https://raw.githubusercontent.com/hpdts/lambda-assets/master/user_icon.png' class='user-avatar'>
+                    <div class='user-bubble'><strong>You:</strong><br>{msg['content']}</div>
+                </div>
+                """, unsafe_allow_html=True
+            )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    user_input = st.text_input("Type your message here...")
+
+    col_buttons = st.columns([1,1])
+    with col_buttons[0]:
+        send_button = st.button("Send")
+    with col_buttons[1]:
+        clear_button = st.button("Clear Chat")
+
+    if send_button:
+        user_msg = user_input.strip()
+        if user_msg:
+            # 加入用户消息
+            st.session_state["messages"].append({"role": "user", "content": user_msg})
+            st.session_state["user_message_count"] += 1
+            # 生成AI回复
+            response = generate_response(st.session_state["messages"])
+            st.session_state["messages"].append({"role": "assistant", "content": response})
+
+            # 自动推荐逻辑
+            if st.session_state["user_message_count"] >= 3 and not st.session_state["recommended_places"]:
+                # 假定关键字yoga，可根据需求改为根据用户对话内容选择关键字
+                keyword = "yoga"
+                lat, lng = st.session_state["location_coords"]
+                location_str = f"{lat},{lng}"
+                places = get_recommendations_from_google_maps(keyword=keyword, location=location_str, radius=2000)
+                if places:
+                    rec_text = "It seems you might enjoy some relaxing spots around your location:\n\n"
+                    for p in places:
+                        google_map_link = f"https://www.google.com/maps/search/?api=1&query={p['lat']},{p['lng']}"
+                        rec_text += f"- [{p['name']}]({google_map_link}) - {p['address']}\n"
+                    st.session_state["messages"].append({"role": "assistant", "content": rec_text})
+                    st.session_state["recommended_places"] = places
+
+    if clear_button:
+        st.session_state["messages"] = [
+            {
+                "role": "system",
+                "content": "You are MoodGPT..."
+            },
+            {
+                "role": "assistant",
+                "content": "Hi there! I’m MoodGPT. How are you feeling today?"
+            }
+        ]
+        st.session_state["user_message_count"] = 0
+        st.session_state["recommended_places"] = []
+
+with right_col:
+    st.write("**Nearby Recommendations & Map**")
+    # 构建地图数据
+    map_data = {
+        "lat": [],
+        "lon": []
+    }
+
+    # 如果有推荐地点，加入到地图数据中
+    if st.session_state["recommended_places"]:
+        for place in st.session_state["recommended_places"]:
+            if place["lat"] and place["lng"]:
+                map_data["lat"].append(place["lat"])
+                map_data["lon"].append(place["lng"])
+        # 显示推荐列表
+        for p in st.session_state["recommended_places"]:
+            google_map_link = f"https://www.google.com/maps/search/?api=1&query={p['lat']},{p['lng']}"
+            st.markdown(f"- **[{p['name']}]({google_map_link})**: {p['address']}")
+    else:
+        # 没有推荐就只显示用户位置
+        lat, lng = st.session_state["location_coords"]
+        map_data["lat"].append(lat)
+        map_data["lon"].append(lng)
+        st.write("No recommendations yet. After a few messages, suggestions will appear here.")
+
+    # 显示地图
+    if map_data["lat"] and map_data["lon"]:
+        df = pd.DataFrame(map_data)
+        st.map(df, zoom=13)

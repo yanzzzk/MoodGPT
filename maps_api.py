@@ -5,22 +5,27 @@ from dotenv import load_dotenv
 load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
+def geocode_location(address):
+    """
+    使用 Google Geocoding API 将地址转换为 (lat, lng) 坐标。
+    如果失败，返回 None。
+    """
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        "address": address,
+        "key": GOOGLE_MAPS_API_KEY
+    }
+    r = requests.get(url, params=params)
+    data = r.json()
+    if data.get("status") == "OK" and len(data.get("results", [])) > 0:
+        location = data["results"][0]["geometry"]["location"]
+        return (location["lat"], location["lng"])
+    return None
+
 def get_recommendations_from_google_maps(keyword="yoga", location="40.7128,-74.0060", radius=1500):
     """
     使用Google Places API根据关键词和位置获得附近的放松场所推荐。
-    参数说明：
-    keyword: 搜索关键字，比如 'yoga', 'spa', 'restaurant', 'cinema'
-    location: 纬度经度字符串 "lat,lng" 格式
-    radius: 搜索半径（米）
-
-    返回：
-    包含地点信息的列表，每个元素是字典：
-    {
-      "name": "Place Name",
-      "address": "Address",
-      "lat": float,
-      "lng": float
-    }
+    返回列表，每个元素是字典：{"name":..., "address":..., "lat":..., "lng":...}
     """
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
@@ -38,9 +43,9 @@ def get_recommendations_from_google_maps(keyword="yoga", location="40.7128,-74.0
             name = place.get("name", "Unknown")
             address = place.get("vicinity", "No address found")
             geometry = place.get("geometry", {})
-            location = geometry.get("location", {})
-            lat = location.get("lat")
-            lng = location.get("lng")
+            loc = geometry.get("location", {})
+            lat = loc.get("lat")
+            lng = loc.get("lng")
             recommendations.append({
                 "name": name,
                 "address": address,
