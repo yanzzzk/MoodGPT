@@ -127,7 +127,7 @@ with left_col:
             st.markdown(
                 f"""
                 <div class='assistant-msg'>
-                    <img src='https://raw.githubusercontent.com/hpdts/lambda-assets/master/bot_icon.png' class='assistant-avatar'>
+                    <img src='https://i.pinimg.com/originals/0b/40/63/0b40633c3c0b2b245a6ba8b30baf7706.png' class='assistant-avatar'>
                     <div class='assistant-bubble'><strong>MoodGPT:</strong><br>{msg['content']}</div>
                 </div>
                 """, unsafe_allow_html=True
@@ -136,7 +136,7 @@ with left_col:
             st.markdown(
                 f"""
                 <div class='user-msg'>
-                    <img src='https://raw.githubusercontent.com/hpdts/lambda-assets/master/user_icon.png' class='user-avatar'>
+                    <img src='https://i.pinimg.com/originals/15/ad/b3/15adb3f1eb3a24e692da5b56108edf5d.jpg' class='user-avatar'>
                     <div class='user-bubble'><strong>You:</strong><br>{msg['content']}</div>
                 </div>
                 """, unsafe_allow_html=True
