@@ -4,32 +4,41 @@ import openai
 import streamlit as st
 from maps_api import get_recommendations_from_google_maps, geocode_location
 import pandas as pd
+import base64
 
+# 加载环境变量
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-st.set_page_config(page_title="MoodGPT: Your Mood-Based Activity Chatbot", page_icon="💬", layout="wide")
+# 设置页面配置
+st.set_page_config(
+    page_title="MoodGPT: Your Mood-Based Activity Chatbot",
+    page_icon="💬",
+    layout="wide"
+)
 
+# 初始化会话状态
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {
             "role": "system",
             "content": (
-                "You are MoodGPT, a friendly and empathetic assistant. Engage in natural conversation, respond kindly to user emotions. "
-                "After about 3 user messages, proactively suggest local relaxing spots based on the user's location. "
-                "Avoid repetitive apologies. Keep responses warm and helpful."
+                "You are MoodGPT, a friendly and empathetic assistant. Engage in natural conversation, "
+                "respond kindly to user emotions. After about 3 user messages, proactively suggest local "
+                "relaxing spots based on the user's location. Avoid repetitive apologies. Keep responses warm and helpful."
             )
         },
         {
             "role": "assistant",
-            "content": "Hi there! I’m MoodGPT. How are you feeling today?"
+            "content": "Hi there! I’m MoodGPT AI assistant, my name is Yuki Asuna. How are you feeling today?"
         }
     ]
     st.session_state["user_message_count"] = 0
     st.session_state["recommended_places"] = []
-    st.session_state["location"] = "New York"  # 用户可修改
-    st.session_state["location_coords"] = None  # 保存地理坐标
+    st.session_state["location"] = "New York"
+    st.session_state["location_coords"] = None
 
+# 生成 OpenAI 响应
 def generate_response(messages):
     try:
         response = openai.ChatCompletion.create(
@@ -42,7 +51,7 @@ def generate_response(messages):
     except Exception as e:
         return f"Error: {str(e)}"
 
-# 自定义CSS，让UI更科技感
+# 自定义 CSS
 st.markdown("""
 <style>
 body {
@@ -84,41 +93,59 @@ body {
     background: #e8ebf0;
     margin-right: auto;
 }
-h1, h2, h3 {
-    font-weight: 600;
-}
-input[type=text] {
-    border-radius: 5px;
-    border: 1px solid #ccc;
-    padding: 8px;
+.custom-image {
+    display: block;
+    margin: 0 auto;
+    border-radius: 10px;
+    max-height: 300px;
+    width: 100%;
+    object-fit: cover;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 </style>
 """, unsafe_allow_html=True)
 
+# 页面标题
 st.title("MoodGPT: Your Mood-Based Activity Chatbot")
 
-# 顶部位置设置
+# 显示图片（通过 Base64 编码方式嵌入图片）
+def image_to_base64(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+image_path = "static/star.jpg"  # 图片路径
+image_base64 = image_to_base64(image_path)
+
+# 使用 Base64 编码的图片
+st.markdown(
+    f"""
+    <div>
+        <img src="data:image/jpeg;base64,{image_base64}" alt="Mood-GPT" class="custom-image">
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# 设置用户位置
 st.write("**Set Your Location** (e.g., 'New York', 'San Francisco', or '40.7128,-74.0060'):")
 location_input = st.text_input("Your location:", value=st.session_state["location"])
 if location_input.strip() != st.session_state["location"]:
     st.session_state["location"] = location_input.strip()
-    st.session_state["recommended_places"] = []  # 位置变了后清空已推荐地点
+    st.session_state["recommended_places"] = []
 
 # 地理编码用户位置
 coords = None
 if "," in st.session_state["location"]:
-    # 认为是 "lat,lng" 格式
     coords = tuple(map(float, st.session_state["location"].split(",")))
 else:
-    # 认为是地名
     coords = geocode_location(st.session_state["location"])
 
 if coords is None:
-    # 地理编码失败或未给出正确坐标，默认纽约
-    coords = (40.7128, -74.0060)
+    coords = (40.7128, -74.0060)  # 默认值
 st.session_state["location_coords"] = coords
 
-left_col, right_col = st.columns([1,1])
+# 页面布局
+left_col, right_col = st.columns([1, 1])
 
 with left_col:
     st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
@@ -143,40 +170,31 @@ with left_col:
             )
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # 聊天输入框
     user_input = st.text_input("Type your message here...")
-
-    col_buttons = st.columns([1,1])
-    with col_buttons[0]:
-        send_button = st.button("Send")
-    with col_buttons[1]:
-        clear_button = st.button("Clear Chat")
-
-    if send_button:
+    if st.button("Send"):
         user_msg = user_input.strip()
         if user_msg:
-            # 加入用户消息
             st.session_state["messages"].append({"role": "user", "content": user_msg})
             st.session_state["user_message_count"] += 1
-            # 生成AI回复
             response = generate_response(st.session_state["messages"])
             st.session_state["messages"].append({"role": "assistant", "content": response})
 
-            # 自动推荐逻辑
+            # 自动推荐
             if st.session_state["user_message_count"] >= 3 and not st.session_state["recommended_places"]:
-                # 假定关键字yoga，可根据需求改为根据用户对话内容选择关键字
                 keyword = "yoga"
                 lat, lng = st.session_state["location_coords"]
                 location_str = f"{lat},{lng}"
                 places = get_recommendations_from_google_maps(keyword=keyword, location=location_str, radius=2000)
                 if places:
-                    rec_text = "It seems you might enjoy some relaxing spots around your location:\n\n"
+                    rec_text = "Here are some relaxing spots around your location:\n\n"
                     for p in places:
                         google_map_link = f"https://www.google.com/maps/search/?api=1&query={p['lat']},{p['lng']}"
                         rec_text += f"- [{p['name']}]({google_map_link}) - {p['address']}\n"
                     st.session_state["messages"].append({"role": "assistant", "content": rec_text})
                     st.session_state["recommended_places"] = places
 
-    if clear_button:
+    if st.button("Clear Chat"):
         st.session_state["messages"] = [
             {
                 "role": "system",
@@ -192,30 +210,19 @@ with left_col:
 
 with right_col:
     st.write("**Nearby Recommendations & Map**")
-    # 构建地图数据
-    map_data = {
-        "lat": [],
-        "lon": []
-    }
-
-    # 如果有推荐地点，加入到地图数据中
+    map_data = {"lat": [], "lon": []}
     if st.session_state["recommended_places"]:
         for place in st.session_state["recommended_places"]:
-            if place["lat"] and place["lng"]:
-                map_data["lat"].append(place["lat"])
-                map_data["lon"].append(place["lng"])
-        # 显示推荐列表
-        for p in st.session_state["recommended_places"]:
-            google_map_link = f"https://www.google.com/maps/search/?api=1&query={p['lat']},{p['lng']}"
-            st.markdown(f"- **[{p['name']}]({google_map_link})**: {p['address']}")
+            map_data["lat"].append(place["lat"])
+            map_data["lon"].append(place["lng"])
+            google_map_link = f"https://www.google.com/maps/search/?api=1&query={place['lat']},{place['lng']}"
+            st.markdown(f"- **[{place['name']}]({google_map_link})**: {place['address']}")
     else:
-        # 没有推荐就只显示用户位置
         lat, lng = st.session_state["location_coords"]
         map_data["lat"].append(lat)
         map_data["lon"].append(lng)
         st.write("No recommendations yet. After a few messages, suggestions will appear here.")
 
-    # 显示地图
     if map_data["lat"] and map_data["lon"]:
         df = pd.DataFrame(map_data)
         st.map(df, zoom=13)
