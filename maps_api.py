@@ -6,10 +6,6 @@ load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
 def geocode_location(address):
-    """
-    使用 Google Geocoding API 将地址转换为 (lat, lng) 坐标。
-    如果失败，返回 None。
-    """
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
         "address": address,
@@ -23,10 +19,6 @@ def geocode_location(address):
     return None
 
 def get_recommendations_from_google_maps(keyword="yoga", location="40.7128,-74.0060", radius=1500):
-    """
-    使用Google Places API根据关键词和位置获得附近的放松场所推荐。
-    返回列表，每个元素是字典：{"name":..., "address":..., "lat":..., "lng":...}
-    """
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
         "key": GOOGLE_MAPS_API_KEY,
@@ -36,10 +28,9 @@ def get_recommendations_from_google_maps(keyword="yoga", location="40.7128,-74.0
     }
     response = requests.get(url, params=params)
     data = response.json()
-
     recommendations = []
     if data.get("results"):
-        for place in data["results"][:5]:  # 只取前5个结果
+        for place in data["results"][:5]:
             name = place.get("name", "Unknown")
             address = place.get("vicinity", "No address found")
             geometry = place.get("geometry", {})

@@ -226,14 +226,20 @@ import openai
 import streamlit as st
 from maps_api import get_recommendations_from_google_maps, geocode_location
 from feedback import RecommendationRLModel  # Import the Q-table model
+from utils import classify_emotion, get_activity_keyword, refine_recommendations
 import pandas as pd
+import base64
 
 # Load environment variables
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Configure Streamlit page
-st.set_page_config(page_title="MoodGPT: Your Mood-Based Activity Chatbot", page_icon="💬", layout="wide")
+st.set_page_config(
+    page_title="MoodGPT: Your Mood-Based Activity Chatbot",
+    page_icon="💬💢",
+    layout="wide"
+)
 
 # Initialize session state for Q-table model and other variables
 if "rl_model" not in st.session_state:
@@ -301,6 +307,7 @@ st.title("MoodGPT: Your Mood-Based Activity Chatbot")
 location_input = st.text_input("Enter your location:", value=st.session_state["location"])
 if location_input.strip() != st.session_state["location"]:
     st.session_state["location"] = location_input.strip()
+    st.session_state["recommended_places"] = []
     st.session_state["recommended_places"] = []
 
 coords = None
