@@ -3,41 +3,38 @@ from dotenv import load_dotenv
 import openai
 import streamlit as st
 from maps_api import get_recommendations_from_google_maps, geocode_location
+from feedback import RecommendationRLModel  # Import the Q-table model
 from utils import classify_emotion, get_activity_keyword, refine_recommendations
 import pandas as pd
 import base64
 
+# Load environment variables
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# Configure Streamlit page
 st.set_page_config(
     page_title="MoodGPT: Your Mood-Based Activity Chatbot",
-    page_icon="💢",
+    page_icon="💬💢",
     layout="wide"
 )
 
+# Initialize session state for Q-table model and other variables
+if "rl_model" not in st.session_state:
+    st.session_state["rl_model"] = RecommendationRLModel()
+
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
-        {
-            "role": "system",
-            "content": (
-                "You are MoodGPT, a friendly and empathetic assistant. Engage in natural conversation, "
-                "respond kindly to user emotions. After about 3 user messages, proactively suggest local "
-                "relaxing spots or entertainment (anime, theme parks, cafes, etc.) based on the user's location. "
-                "Use knowledge from ML: K-NN, PCA, Decision Trees and possibly embeddings to refine recommendations. "
-                "Avoid repetitive apologies. Keep responses warm and helpful."
-            )
-        },
-        {
-            "role": "assistant",
-            "content": "Hi there! I’m MoodGPT AI assistant Yuki Asuna. How are you feeling today?"
-        }
+        {"role": "system", "content": "You are MoodGPT, a friendly assistant that recommends relaxing activities."},
+        {"role": "assistant", "content": "Hi there! I’m MoodGPT. How are you feeling today?"}
     ]
     st.session_state["user_message_count"] = 0
     st.session_state["recommended_places"] = []
     st.session_state["location"] = "New York"
     st.session_state["location_coords"] = None
+    st.session_state["feedback"] = []
 
+# Function to generate responses from OpenAI
 def generate_response(messages):
     try:
         response = openai.ChatCompletion.create(
@@ -50,80 +47,45 @@ def generate_response(messages):
     except Exception as e:
         return f"Error: {str(e)}"
 
-# CSS
+# Custom CSS for avatars and layout
 st.markdown("""
 <style>
-body {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    background: #f0f2f6;
-}
-.chat-container {
-    padding: 20px;
-    background: #ffffff;
-    border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.user-msg, .assistant-msg {
-    display: flex;
-    align-items: flex-start;
-    margin: 15px 0;
-}
-.user-avatar, .assistant-avatar {
+.avatar-img {
     width: 40px;
     height: 40px;
     border-radius: 20px;
-    margin: 0 10px;
+    margin-right: 10px;
 }
-.user-avatar {
-    order: 2;
+.chat-msg {
+    display: flex;
+    align-items: flex-start;
+    margin: 10px 0;
 }
 .user-bubble, .assistant-bubble {
-    border-radius: 10px;
+    max-width: 70%;
     padding: 10px 15px;
-    max-width: 80%;
-    line-height: 1.5;
+    border-radius: 10px;
     font-size: 15px;
 }
 .user-bubble {
-    background: #DCF8C6;
+    background-color: #dcf8c6;
     margin-left: auto;
 }
 .assistant-bubble {
-    background: #e8ebf0;
+    background-color: #f0f2f6;
     margin-right: auto;
-}
-.custom-image {
-    display: block;
-    margin: 0 auto;
-    border-radius: 10px;
-    max-height: 300px;
-    width: 100%;
-    object-fit: cover;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 </style>
 """, unsafe_allow_html=True)
 
+# Main app logic
 st.title("MoodGPT: Your Mood-Based Activity Chatbot")
-def image_to_base64(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
 
-image_path = "static/star.jpg"
-image_base64 = image_to_base64(image_path)
-st.markdown(
-    f"""
-    <div>
-        <img src="data:image/jpeg;base64,{image_base64}" alt="Mood-GPT" class="custom-image">
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.write("**Set Your Location** (e.g., 'New York', 'San Francisco', or '40.7128,-74.0060'):")
-location_input = st.text_input("Your location:", value=st.session_state["location"])
+# User location input
+location_input = st.text_input("Enter your location:", value=st.session_state["location"])
 if location_input.strip() != st.session_state["location"]:
     st.session_state["location"] = location_input.strip()
+    st.session_state["recommended_places"] = []
     st.session_state["recommended_places"] = []
 
 coords = None
@@ -132,79 +94,84 @@ if "," in st.session_state["location"]:
 else:
     coords = geocode_location(st.session_state["location"])
 
-if coords is None:
-    coords = (40.7128, -74.0060)
-st.session_state["location_coords"] = coords
+if coords:
+    st.session_state["location_coords"] = coords
+else:
+    st.session_state["location_coords"] = (40.7128, -74.0060)  # Default to New York
 
-left_col, right_col = st.columns([1, 1])
-
+# Left column: Chat interface
+left_col, right_col = st.columns([2, 1])
 with left_col:
-    st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-    for msg in st.session_state["messages"]:
+    # Display chat history
+    for idx, msg in enumerate(st.session_state["messages"]):
         if msg["role"] == "assistant":
             st.markdown(
                 f"""
-                <div class='assistant-msg'>
-                    <img src='https://i.pinimg.com/originals/0b/40/63/0b40633c3c0b2b245a6ba8b30baf7706.png' class='assistant-avatar'>
-                    <div class='assistant-bubble'><strong>MoodGPT:</strong><br>{msg['content']}</div>
+                <div class="chat-msg">
+                    <img src="https://i.pinimg.com/originals/0b/40/63/0b40633c3c0b2b245a6ba8b30baf7706.png" class="avatar-img">
+                    <div class="assistant-bubble">{msg['content']}</div>
                 </div>
                 """, unsafe_allow_html=True
             )
+            # Feedback buttons
+            col_feedback = st.columns([1, 1])
+            with col_feedback[0]:
+                if st.button("👍", key=f"thumbs_up_{idx}"):
+                    st.session_state["feedback"].append({"message_idx": idx, "feedback": 1})
+            with col_feedback[1]:
+                if st.button("👎", key=f"thumbs_down_{idx}"):
+                    st.session_state["feedback"].append({"message_idx": idx, "feedback": -1})
         elif msg["role"] == "user":
             st.markdown(
                 f"""
-                <div class='user-msg'>
-                    <img src='https://i.pinimg.com/originals/15/ad/b3/15adb3f1eb3a24e692da5b56108edf5d.jpg' class='user-avatar'>
-                    <div class='user-bubble'><strong>You:</strong><br>{msg['content']}</div>
+                <div class="chat-msg" style="justify-content: flex-end;">
+                    <div class="user-bubble">{msg['content']}</div>
+                    <img src="https://i.pinimg.com/originals/15/ad/b3/15adb3f1eb3a24e692da5b56108edf5d.jpg" class="avatar-img">
                 </div>
                 """, unsafe_allow_html=True
             )
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    user_input = st.text_input("Type your message here...")
-    if st.button("Send"):
+    # Chat input field with clearing logic
+    user_input_key = f"chat_input_{st.session_state['user_message_count']}"
+    user_input = st.text_input("Type your message here:", key=user_input_key)
+    send_button = st.button("Send")
+
+    if (send_button or user_input) and user_input.strip():
         user_msg = user_input.strip()
-        if user_msg:
-            st.session_state["messages"].append({"role": "user", "content": user_msg})
-            st.session_state["user_message_count"] += 1
-            emotion = classify_emotion(user_msg)
-            keyword = get_activity_keyword(emotion)
-            lat, lng = st.session_state["location_coords"]
-            location_str = f"{lat},{lng}"
-            places = get_recommendations_from_google_maps(keyword=keyword, location=location_str, radius=2000)
-            places = refine_recommendations(places, emotion)
-            st.session_state["recommended_places"] = places
-            response = generate_response(st.session_state["messages"])
-            st.session_state["messages"].append({"role": "assistant", "content": f"{response}\n\nI've found some {keyword} spots around you! If you're feeling {emotion}, these might be interesting."})
+        st.session_state["messages"].append({"role": "user", "content": user_msg})
+        st.session_state["user_message_count"] += 1
 
-    if st.button("Clear Chat"):
-        st.session_state["messages"] = [
-            {
-                "role": "system",
-                "content": "You are MoodGPT..."
-            },
-            {
-                "role": "assistant",
-                "content": "Hi there! I’m MoodGPT. How are you feeling today?"
-            }
-        ]
-        st.session_state["user_message_count"] = 0
-        st.session_state["recommended_places"] = []
+        # Generate and add chatbot response
+        response = generate_response(st.session_state["messages"])
+        st.session_state["messages"].append({"role": "assistant", "content": response})
 
+        # Add recommendations if needed
+        if st.session_state["user_message_count"] >= 3 and not st.session_state["recommended_places"]:
+            places = get_recommendations_from_google_maps("relaxing activities", f"{coords[0]},{coords[1]}", 2000)
+            if places:
+                rec_msg = "Here are some relaxing spots nearby:\n"
+                for place in places:
+                    link = f"https://www.google.com/maps/search/?api=1&query={place['lat']},{place['lng']}"
+                    rec_msg += f"- [{place['name']}]({link}) - {place['address']}\n"
+                st.session_state["messages"].append({"role": "assistant", "content": rec_msg})
+                st.session_state["recommended_places"] = places
+
+        st.rerun()
+
+# Right column: Display recommendations and map
 with right_col:
-    st.write("**Nearby Recommendations & Map**")
+    st.write("### Nearby Recommendations")
     map_data = {"lat": [], "lon": []}
-    if st.session_state["recommended_places"]:
-        for place in st.session_state["recommended_places"]:
-            map_data["lat"].append(place["lat"])
-            map_data["lon"].append(place["lng"])
-            st.markdown(f"- **{place['name']}**: {place['address']}")
-    else:
-        lat, lng = st.session_state["location_coords"]
-        map_data["lat"].append(lat)
-        map_data["lon"].append(lng)
-        st.write("No recommendations yet. After a few messages, suggestions will appear here.")
+    for place in st.session_state["recommended_places"]:
+        link = f"https://www.google.com/maps/search/?api=1&query={place['lat']},{place['lng']}"
+        st.markdown(f"- **[{place['name']}]({link})**: {place['address']}")
+        map_data["lat"].append(place["lat"])
+        map_data["lon"].append(place["lng"])
 
     if map_data["lat"] and map_data["lon"]:
         df = pd.DataFrame(map_data)
         st.map(df, zoom=13)
+
+# Save Q-table button
+if st.button("Save Q-Table"):
+    st.session_state["rl_model"].save_model("q_table.npy")
