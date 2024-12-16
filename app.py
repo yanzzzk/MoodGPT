@@ -6,8 +6,51 @@ from maps_api import get_recommendations_from_google_maps, geocode_location
 from utils import classify_emotion, get_activity_keyword, refine_recommendations
 import pandas as pd
 import base64
+import numpy as np
 
-# 加载环境变量
+# ---- RL MODEL CODE ----
+class RecommendationRLModel:
+    def __init__(self):
+        # Initialize Q-table as a dictionary for state-action mapping
+        self.q_table = {}
+
+    def update_q_value(self, state, action, reward, alpha=0.1, gamma=0.9):
+        """
+        Update Q-value for a given state-action pair using Q-learning.
+        """
+        if state not in self.q_table:
+            self.q_table[state] = {}
+
+        if action not in self.q_table[state]:
+            self.q_table[state][action] = 0
+
+        # For simplicity, next state is considered same as current state in this scenario
+        max_next_q_value = max(self.q_table[state].values(), default=0)
+        self.q_table[state][action] += alpha * (reward + gamma * max_next_q_value - self.q_table[state][action])
+
+    def get_best_action(self, state):
+        """
+        Get the best action for a given state.
+        """
+        if state not in self.q_table or not self.q_table[state]:
+            return None
+        return max(self.q_table[state], key=self.q_table[state].get)
+
+    def save_model(self, filepath):
+        """
+        Save the Q-table to a .npy file.
+        """
+        np.save(filepath, self.q_table)
+
+    def load_model(self, filepath):
+        """
+        Load the Q-table from a .npy file.
+        """
+        self.q_table = np.load(filepath, allow_pickle=True).item()
+
+# ---- END RL MODEL CODE ----
+
+# Load environment variables
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -38,6 +81,10 @@ if "messages" not in st.session_state:
     st.session_state["recommended_places"] = []
     st.session_state["location"] = "New York"
     st.session_state["location_coords"] = None
+
+# Initialize RL model if not present
+if "rl_model" not in st.session_state:
+    st.session_state["rl_model"] = RecommendationRLModel()
 
 def generate_response(messages):
     try:
@@ -107,7 +154,7 @@ body {
 
 st.title("MoodGPT: Your Mood-Based Activity Chatbot")
 
-# 显示图片
+# Display image
 def image_to_base64(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
@@ -143,7 +190,7 @@ left_col, right_col = st.columns([1, 1])
 
 with left_col:
     st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-    for msg in st.session_state["messages"]:
+    for i, msg in enumerate(st.session_state["messages"]):
         if msg["role"] == "assistant":
             st.markdown(
                 f"""
@@ -153,6 +200,25 @@ with left_col:
                 </div>
                 """, unsafe_allow_html=True
             )
+            # Add thumbs up/down for RL feedback for each assistant message
+            col_up, col_down = st.columns([0.1,0.1])
+            if col_up.button("👍", key=f"thumbs_up_{i}"):
+                # User gave positive feedback: reward = +1
+                if "last_state" in st.session_state and "last_action" in st.session_state:
+                    st.session_state["rl_model"].update_q_value(
+                        st.session_state["last_state"],
+                        st.session_state["last_action"],
+                        reward=1
+                    )
+            if col_down.button("👎", key=f"thumbs_down_{i}"):
+                # User gave negative feedback: reward = -1
+                if "last_state" in st.session_state and "last_action" in st.session_state:
+                    st.session_state["rl_model"].update_q_value(
+                        st.session_state["last_state"],
+                        st.session_state["last_action"],
+                        reward=-1
+                    )
+
         elif msg["role"] == "user":
             st.markdown(
                 f"""
@@ -164,18 +230,24 @@ with left_col:
             )
     st.markdown("</div>", unsafe_allow_html=True)
 
-    user_input = st.text_input("Type your message here...")
-    if st.button("Send"):
-        user_msg = user_input.strip()
-        if user_msg:
+    # Use a form so user can press Enter or click send
+    with st.form("input_form", clear_on_submit=True):
+        user_input = st.text_input("Type your message here...", key="user_input")
+        submitted = st.form_submit_button("Send")
+        if submitted and user_input.strip():
+            user_msg = user_input.strip()
             st.session_state["messages"].append({"role": "user", "content": user_msg})
             st.session_state["user_message_count"] += 1
 
-            # 根据用户输入决定活动关键词
+            # Determine emotion and keyword
             emotion = classify_emotion(user_msg)
             keyword = get_activity_keyword(emotion)
 
-            # 获取推荐
+            # Store state and action for RL
+            st.session_state["last_state"] = (st.session_state["location"], emotion)
+            st.session_state["last_action"] = keyword
+
+            # Get recommendations
             lat, lng = st.session_state["location_coords"]
             location_str = f"{lat},{lng}"
             places = get_recommendations_from_google_maps(keyword=keyword, location=location_str, radius=2000)
@@ -183,10 +255,12 @@ with left_col:
 
             st.session_state["recommended_places"] = places
 
-            # 生成AI回复
-            # 可在此增加深度学习模型的上下文理解增强，在此示例中仍使用OpenAI API
+            # Generate AI response
             response = generate_response(st.session_state["messages"])
-            st.session_state["messages"].append({"role": "assistant", "content": f"{response}\n\nI've found some {keyword} spots around you! If you're feeling {emotion}, these might be interesting."})
+            st.session_state["messages"].append({
+                "role": "assistant",
+                "content": f"{response}\n\nI've found some {keyword} spots around you! If you're feeling {emotion}, these might be interesting."
+            })
 
     if st.button("Clear Chat"):
         st.session_state["messages"] = [
@@ -201,6 +275,10 @@ with left_col:
         ]
         st.session_state["user_message_count"] = 0
         st.session_state["recommended_places"] = []
+        if "last_state" in st.session_state:
+            del st.session_state["last_state"]
+        if "last_action" in st.session_state:
+            del st.session_state["last_action"]
 
 with right_col:
     st.write("**Nearby Recommendations & Map**")
