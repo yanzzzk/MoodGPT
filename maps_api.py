@@ -6,6 +6,9 @@ load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
 def geocode_location(address):
+    """
+    使用 Google Geocoding API 将地址转换为 (lat, lng) 坐标。
+    """
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
         "address": address,
@@ -19,6 +22,9 @@ def geocode_location(address):
     return None
 
 def get_recommendations_from_google_maps(keyword="yoga", location="40.7128,-74.0060", radius=1500):
+    """
+    使用Google Places API根据关键词和位置获得附近的场所推荐。
+    """
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
         "key": GOOGLE_MAPS_API_KEY,
