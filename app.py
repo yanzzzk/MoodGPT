@@ -224,3 +224,7 @@ with right_col:
         st.map(df, zoom=13)
 
 
+# Save Q-table button
+if st.button("Save Q-Table"):
+    st.session_state["rl_model"].save_model("q_table.npy")
+
