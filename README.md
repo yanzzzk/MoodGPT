@@ -1,199 +1,164 @@
-# MoodGPT: Your Personalized Mood-based Chatbot
+# **MoodGPT: Your Personalized Mood-Based Chatbot**
 
-MoodGPT is an interactive chatbot designed to help users unwind by understanding their mood and recommending tailored activities. The application supports multi-turn conversations, saves chat history, and provides real-time suggestions for restaurants, movies, or other leisure activities based on user input.
+MoodGPT is an AI-powered chatbot designed to understand user emotions and recommend tailored activities. Built with **machine learning**, **reinforcement learning**, and real-time geolocation capabilities, the application helps users unwind by suggesting nearby activities such as cafes, spas, amusement parks, movie theaters, and more.
 
----
-
-## Features
-
-### Multi-turn Conversation
-- Continuous back-and-forth interaction between the user and the chatbot.
-- Chat history is displayed dynamically, preserving context for intelligent responses.
-
-### Real-time Recommendations
-- Based on user input, the chatbot suggests:
-  - Restaurants
-  - Movie theaters
-  - Other relaxing activities (e.g., yoga, spa, nature walks).
-- Recommendations are presented in a clean, interactive list.
-
-### Interactive User Interface
-- Designed with **Streamlit** for a sleek and user-friendly experience.
-- Welcomes users with an introductory message.
-- Displays conversation history and allows users to restart sessions.
-
-### Context-aware AI
-- Powered by **OpenAI GPT models** for empathetic and intelligent responses.
-- Adapts dynamically to the user’s mood and conversation flow.
+🚀 **Live Demo**: [MoodGPT - Your Mood AI Assistant](https://moodaiasuna.streamlit.app/)
 
 ---
 
-## Installation Guide
+## **Features**
 
-### Prerequisites
-1. **Python 3.9 or later** (Recommended: Python 3.10 or 3.12).
-2. **Streamlit** (For creating the user interface).
-3. **OpenAI API Key** (Required for chatbot functionality).
+### **1. Multi-Turn Conversation**
+- Continuous and natural back-and-forth interaction with the chatbot.  
+- Chat history dynamically displays to preserve context for **intelligent, empathetic responses**.
 
-### Step-by-step Setup
+### **2. Real-Time Personalized Recommendations**
+- Based on the user's mood and location, the chatbot suggests:
+  - Restaurants and cafes  
+  - Movie theaters  
+  - Relaxing activities (e.g., yoga studios, spas, nature walks)  
+  - Entertainment venues (e.g., amusement parks, anime expos, bars)  
+- Recommendations are fetched dynamically via the **Google Places API** and displayed interactively.
 
-#### Step 1: Clone the Repository
+### **3. Context-Aware AI with Reinforcement Learning**
+- Built using **OpenAI GPT-4** for natural language understanding and mood detection.  
+- **Reinforcement Learning (Q-Learning)** improves recommendation accuracy over time based on user feedback.
+
+### **4. Interactive, User-Friendly Interface**
+- Built with **Streamlit** for a sleek, intuitive experience.  
+- Features include:
+  - Live conversation and chat history  
+  - A dynamic geolocation-based map showing nearby recommendations  
+  - Clear, well-organized interface for seamless navigation  
+
+---
+
+## **Installation Guide**
+
+### **Prerequisites**
+1. **Python 3.9 or later** (Recommended: Python 3.10 or 3.12)  
+2. **Streamlit** (Web framework)  
+3. **OpenAI API Key** (For GPT-powered responses)  
+4. **Google Maps API Key** (For real-time geolocation recommendations)  
+
+---
+
+### **Step-by-Step Setup**
+
+#### **1. Clone the Repository**
 ```bash
 git clone https://github.com/your-repository/moodgpt.git
 cd moodgpt
-```
 
-#### Step 2: Set Up a Virtual Environment
-```bash
+2. Set Up a Virtual Environment
+bash
+Copy code
 python3 -m venv moodgpt-env
 source moodgpt-env/bin/activate  # macOS/Linux
-moodgpt-env\Scripts\activate   # Windows
-```
-
-#### Step 3: Install Dependencies
-```bash
+moodgpt-env\Scripts\activate    # Windows
+3. Install Dependencies
+bash
+Copy code
 pip install -r requirements.txt
-```
-
-#### Step 4: Configure the OpenAI API Key
-1. Create a `.env` file in the project directory.
-2. Add your OpenAI API key in the following format:
-```env
+4. Configure API Keys
+Create a .env file in the project root directory.
+Add your API keys in the following format:
+env
+Copy code
 OPENAI_API_KEY=sk-your-openai-api-key
-```
-
-#### Step 5: Run the Application
-```bash
+GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+5. Run the Application
+bash
+Copy code
 streamlit run app.py
-```
+Usage
+Welcome Message
+Upon launching, the chatbot greets the user with:
+“Hi there! I’m MoodGPT AI assistant, my name is Yuki Asuna. How are you feeling today?”
 
----
-
-## Usage
-
-### Welcome Message
-Upon launching, the chatbot greets the user and asks about their mood.
-
-### Start Chatting
-- Enter your mood or feelings in the text input field.
-- Press **Send** to start the conversation.
-
-### Get Personalized Recommendations
-- During the conversation, click **Get Recommendations** to receive suggestions for relaxing activities.
-
-### Restart Session
-- Use the **Clear Chat** button to reset the conversation and start fresh.
-
----
-
-## Code Overview
-
-### `app.py`
-- The main application script responsible for:
-  - Setting up the **Streamlit** interface.
-  - Managing multi-turn conversations.
-  - Fetching responses from OpenAI GPT models.
-  - Displaying recommendations.
-
-#### Key Components:
-1. **Session State Management**:
-   - Stores user inputs and chatbot responses persistently during the session.
-2. **Chat History**:
-   - Displays all prior messages for context-aware interactions.
-3. **Recommendation Engine**:
-   - Provides a list of activities tailored to the user’s mood.
-
-### `test.py`
-- A test script to validate the API integration and basic functionality of the chatbot.
-
-### `requirements.txt`
-- Lists all the dependencies required to run the project, including:
-  - `openai`
-  - `streamlit`
-  - `python-dotenv`
-
----
-
-## Advanced Features
-
-### Conversation Context
-The chatbot uses conversation history to provide:
-- Personalized responses.
-- Follow-up questions such as:
-  - “Do you feel stressed?”
-  - “Would you like a distraction or some advice?”
-
-### Recommendation Logic
-- Leverages a predefined list of relaxing activities.
-- Randomized to ensure fresh suggestions.
-
----
-
-## File Structure
-```
+Start a Conversation
+Type your mood or feelings into the text input box (e.g., “I’m feeling tired”).
+Press Send to interact with the chatbot.
+Receive Personalized Recommendations
+After 3-4 interactions, the chatbot proactively recommends activities based on your emotions and location.
+A list of suggestions is displayed, and locations appear interactively on a map.
+Restart the Chat
+Use the Clear Chat button to start a new conversation.
+Code Overview
+1. app.py
+Main script that handles the following:
+Streamlit Interface: Renders the chatbot UI and map display.
+Chat Logic: Processes user input, manages chat history, and generates GPT-based responses.
+Recommendation Engine: Fetches personalized suggestions via the Google Maps API.
+2. maps_api.py
+Manages all interactions with the Google Maps API:
+Geocodes user-provided locations into latitude and longitude.
+Fetches nearby places based on activity types and keywords (e.g., cafes, parks, anime expos).
+3. utils.py
+Implements ML logic:
+Emotion Classification: Uses sentiment analysis and predefined keywords to classify moods.
+Recommendation Refinement: Incorporates PCA, K-NN, and decision trees to match emotions to relevant activities.
+Reinforcement Learning: Updates activity recommendations over time using Q-Learning.
+4. data/activities.csv
+A curated dataset of 500+ activities, including categories like:
+Cafes, spas, parks
+Anime expos, amusement parks, bars
+Technologies Used
+OpenAI GPT-4: For natural language understanding and response generation.
+Google Maps API: To fetch geolocation data and real-time activity suggestions.
+Streamlit: For building an interactive and user-friendly web interface.
+Scikit-Learn: Implemented PCA, K-NN, and decision trees for activity clustering and matching.
+Reinforcement Learning: Q-Learning approach to improve activity recommendations based on user interactions.
+File Structure
+bash
+Copy code
 moodgpt/
-├── app.py               # Main application file
-├── requirements.txt     # Required Python dependencies
-├── .env                 # API Key (user-created)
-├── README.md            # Project documentation
-├── moodgpt-env/         # Virtual environment (user-created)
-└── __pycache__/         # Cached Python files (auto-generated)
-```
+├── app.py               # Main Streamlit application
+├── maps_api.py          # Google Maps API logic
+├── utils.py             # ML methods: classification and reinforcement learning
+├── data/
+│   └── activities.csv   # Curated activity dataset
+├── requirements.txt     # Dependencies
+├── .env                 # API Keys (user-created)
+├── static/
+│   └── star.jpg         # Background image
+└── README.md            # Project documentation
+Sample Output
+Chatbot Conversation
+bash
+Copy code
+MoodGPT: Hi there! I’m Yuki Asuna. How are you feeling today?  
+You: I’m feeling a bit tired.  
+MoodGPT: I’m sorry to hear that. Would you like some suggestions to unwind?  
+MoodGPT: Here are some relaxing activities nearby:  
+1. Bliss Yoga Studio - 123 Main St.  
+2. Cloud 9 Spa - 456 Elm St.  
+3. Nature Walk Trail - Central Park.  
+Interactive Map
+Displays real-time activity locations dynamically based on user input and geolocation.
+Contributing
+We welcome contributions!
 
----
+Fork the repository.
+Create a feature branch:
+bash
+Copy code
+git checkout -b feature-name
+Commit your changes:
+bash
+Copy code
+git commit -m "Add feature"
+Push to your branch:
+bash
+Copy code
+git push origin feature-name
+Open a Pull Request.
+License
+This project is licensed under the MIT License. See the LICENSE file for more details.
 
-## Sample Output
+Contact
+Author: Yan Li
+Email: yan61@illinois.edu
+GitHub: yanzzzk
 
-### Welcome Message:
-```
-Hi there! I’m MoodGPT, your mood-based assistant. How are you feeling today?
-```
-
-### User Input:
-```
-I feel a bit stressed after work.
-```
-
-### Chatbot Reply:
-```
-I’m sorry to hear that. Would you like to talk about it or get some recommendations to unwind?
-```
-
-### Recommendations:
-1. Nearby yoga classes
-2. Walks in nature
-3. Top-rated restaurants
-4. Current movie screenings
-
----
-
-## Contributing
-1. Fork the repository.
-2. Create a feature branch:
-   ```bash
-   git checkout -b feature-name
-   ```
-3. Commit your changes:
-   ```bash
-   git commit -m "Add feature"
-   ```
-4. Push to the branch:
-   ```bash
-   git push origin feature-name
-   ```
-5. Open a Pull Request.
-
----
-
-## License
-This project is licensed under the MIT License. See the LICENSE file for details.
-
----
-
-## Contact
-**Author**: Yan Li  
-**Email**: yan61@illinois.edu  
-**GitHub**: [yanzzzk](https://github.com/yanzzzk)
-
-Feel free to raise issues or contribute to the project! 🎉
-
+Feel free to explore the app or contribute to its growth! 🎉
