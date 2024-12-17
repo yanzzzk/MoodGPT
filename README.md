@@ -6,6 +6,11 @@ MoodGPT is an AI-powered chatbot designed to understand user emotions and recomm
 
 ---
 
+## Demo Video
+
+[Click here to watch the demo video] https://www.youtube.com/watch?v=aoYiTeh3UXA
+
+
 ## **Features**
 
 ### **1. Multi-Turn Conversation**
